@@ -1,13 +1,10 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import yfinance as yf
+import openai
 import datetime
-import plotly.graph_objs as go
-import requests
 
-# === Branding & Styling ===
-st.set_page_config(page_title="Options AI Simulator", layout="wide")
+# === App Branding ===
+st.set_page_config(page_title="Quant Fox", layout="wide")
 
 st.markdown("""
     <style>
@@ -30,9 +27,20 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# === App Title ===
-st.title("💹 Options AI Simulator with Voice")
-st.subheader("Powered by AAVE-style AI insight, real-time trading data, and ElevenLabs TTS")
+# === Logo + Title ===
+st.image("https://via.placeholder.com/300x100.png?text=Quant+Fox+Logo", width=300)
+st.title("🦊 Quant Fox — Trade Smarter with Style")
+st.subheader("Real-time trading sim + AAVE-style financial advice from a GPT-powered fox.")
+
+# === Session State Init ===
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+if "saved_advice" not in st.session_state:
+    st.session_state.saved_advice = []
+
+if "saved_trades" not in st.session_state:
+    st.session_state.saved_trades = []
 
 # === Sidebar Inputs ===
 st.sidebar.header("📊 Simulate a Trade")
@@ -43,80 +51,93 @@ premium = st.sidebar.number_input("Option Premium ($)", min_value=0.1, value=5.0
 contracts = st.sidebar.number_input("Contracts", min_value=1, value=1)
 exit_price = st.sidebar.number_input("Target Option Exit Price ($)", value=8.0)
 
-# === Trade Simulation ===
+# === Simulated Trade Summary ===
 total_cost = premium * contracts * 100
 total_payout = exit_price * contracts * 100
 profit = total_payout - total_cost
 
 st.markdown(f"### 💼 Simulated Trade Summary for {symbol.upper()} {option_type}")
 st.write(f"**Entry Cost:** `${total_cost:,.2f}`")
-st.write(f"**Potential Exit Value:** `${total_payout:,.2f}`")
+st.write(f"**Exit Value:** `${total_payout:,.2f}`")
 st.write(f"**Estimated Profit:** `${profit:,.2f}`")
 
-# === Real-Time Chart ===
-st.subheader(f"📈 {symbol.upper()} Market Chart (3 Months)")
-
-try:
-    stock_data = yf.download(symbol, period="3mo", interval="1d")
-    fig = go.Figure()
-    fig.add_trace(go.Candlestick(
-        x=stock_data.index,
-        open=stock_data['Open'],
-        high=stock_data['High'],
-        low=stock_data['Low'],
-        close=stock_data['Close'],
-        name="Candlestick"
-    ))
-    fig.update_layout(
-        xaxis_rangeslider_visible=False,
-        height=400,
-        margin=dict(t=10, b=10),
-        plot_bgcolor="#0F1117",
-        paper_bgcolor="#0F1117",
-        font=dict(color="#FFFFFF")
-    )
-    st.plotly_chart(fig, use_container_width=True)
-except:
-    st.error("⚠️ Could not retrieve stock data. Check the symbol.")
-
-# === AI Advice in AAVE ===
-st.subheader("🧠 AI Advice (AAVE Style) + 🎙️ Voice Playback")
-
-mock_advice = "Aight, listen here — AAPL on a mission. That 150 call lookin' tasty if that breakout holdin’. Secure that entry, ride the momentum, and don’t play yaself."
-
-st.markdown(f"**_“{mock_advice}”_**")
-
-# === ElevenLabs TTS ===
-api_key = st.secrets["ELEVEN_API_KEY"] if "ELEVEN_API_KEY" in st.secrets else st.text_input("Enter your ElevenLabs API Key")
-voice_id = "EXAVITQu4vr4xnSDxMaL"  # Rachel (default voice)
-
-def generate_tts(text, voice_id, api_key):
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-    headers = {
-        "xi-api-key": api_key,
-        "Content-Type": "application/json"
+if st.button("💾 Save This Trade"):
+    trade_data = {
+        "Time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "Symbol": symbol.upper(),
+        "Type": option_type,
+        "Strike": strike_price,
+        "Premium": premium,
+        "Contracts": contracts,
+        "Exit Price": exit_price,
+        "Profit": profit
     }
-    payload = {
-        "text": text,
-        "voice_settings": {
-            "stability": 0.4,
-            "similarity_boost": 0.75
-        }
-    }
-    response = requests.post(url, headers=headers, json=payload)
-    return response.content if response.status_code == 200 else None
+    st.session_state.saved_trades.append(trade_data)
+    st.success("Trade saved.")
 
-if st.button("🔊 Generate Voice"):
-    if not api_key:
-        st.warning("Please enter your ElevenLabs API key.")
+# === TradingView Embed ===
+st.subheader(f"📈 {symbol.upper()} Market Chart (TradingView)")
+embed_url = f"https://s.tradingview.com/widgetembed/?symbol=NASDAQ%3A{symbol.upper()}&interval=D&theme=dark&style=1&locale=en"
+iframe_code = f'<iframe src="{embed_url}" width="100%" height="400" frameborder="0" allowfullscreen></iframe>'
+st.markdown(iframe_code, unsafe_allow_html=True)
+
+# === AAVE-Style Advice Box ===
+st.subheader("🧠 Quant Fox Bot Says:")
+default_advice = f"Aye fam, dat {symbol.upper()} {option_type.lower()} wit a {strike_price} strike? If da volume holdin’ and da trend strong, you might just walk off wit a lil’ bag. Don’t get caught slippin’. Lock in them profits."
+st.markdown(f"**_“{default_advice}”_**")
+
+# === AAVE-Style Chatbot ===
+st.subheader("🗣️ Ask Quant Fox for Money Tips")
+
+openai_api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else st.text_input("Enter your OpenAI API key")
+user_input = st.text_input("What’s on yo mind?", placeholder="e.g. What should I do if the dollar crashin’?")
+
+if st.button("👂 Let Fox Talk"):
+    if not openai_api_key:
+        st.warning("Enter your OpenAI API key.")
+    elif user_input.strip() == "":
+        st.warning("Say somethin’, fam.")
     else:
-        audio = generate_tts(mock_advice, voice_id, api_key)
-        if audio:
-            st.audio(audio, format="audio/mp3")
-        else:
-            st.error("Could not generate voice. Please check your API key.")
+        try:
+            openai.api_key = openai_api_key
+            prompt = f"You are Quant Fox — a smart, street-savvy financial assistant that speaks in African American Vernacular English (AAVE). Offer smart, current advice based on market conditions, global news, or finance. Speak how Black folks talk naturally. Question: {user_input}"
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.85
+            )
+            reply = response.choices[0].message.content.strip()
+            st.session_state.chat_history.append({"question": user_input, "answer": reply})
+            st.markdown(f"**Quant Fox:** _\"{reply}\"_")
+
+            if st.button("💾 Save This Advice"):
+                st.session_state.saved_advice.append({
+                    "Time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "Question": user_input,
+                    "Advice": reply
+                })
+                st.success("Advice saved.")
+        except Exception as e:
+            st.error(f"Error: {e}")
+
+# === Display Chat History ===
+if st.session_state.chat_history:
+    st.markdown("### 💬 Chat History")
+    for entry in reversed(st.session_state.chat_history[-5:]):
+        st.markdown(f"**You:** {entry['question']}")
+        st.markdown(f"**Fox:** _{entry['answer']}_")
+
+# === Display Saved Data ===
+if st.session_state.saved_advice:
+    st.markdown("### 🧾 Saved Advice")
+    df_advice = pd.DataFrame(st.session_state.saved_advice)
+    st.dataframe(df_advice)
+
+if st.session_state.saved_trades:
+    st.markdown("### 💼 Saved Trades")
+    df_trades = pd.DataFrame(st.session_state.saved_trades)
+    st.dataframe(df_trades)
 
 # === Footer ===
 st.markdown("---")
-st.markdown("Built by **Betheainnovation** | Powered by Streamlit, Plotly, Yahoo Finance, and ElevenLabs")
-
+st.markdown("Made with 💚 by **Betheainnovation** · Powered by Streamlit · Quant Fox™")
