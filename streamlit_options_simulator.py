@@ -1,143 +1,121 @@
+# Quant Fox Full-Stack MVP (Phase 1)
+# This is a scaffolded Python/Streamlit app with login, dashboard, simulated trading, and integrated chatbot
+
 import streamlit as st
 import pandas as pd
-import openai
 import datetime
+import uuid
+from openai import OpenAI
 
-# === App Branding ===
+# Store users and session data (normally would be in a DB)
+users = {
+    "demo@quantfox.ai": {"password": "demo123", "balance": 1_000_000, "role": "Free"},
+    # Add admin manually if needed
+}
+session = {}
+
 st.set_page_config(page_title="Quant Fox", layout="wide")
-
 st.markdown("""
     <style>
-    body {
-        background-color: #0F1117;
-    }
-    .main {
-        color: white;
-    }
-    h1, h2, h3 {
-        color: #00FF85;
-    }
-    .stButton>button {
-        background-color: #1E90FF;
-        color: white;
-        border-radius: 8px;
-        padding: 0.5em 1em;
-        font-weight: bold;
-    }
+        body { background-color: #0F1117; }
+        .main { color: white; }
+        h1, h2, h3 { color: #00FF85; }
+        .stButton>button { background-color: #1E90FF; color: white; border-radius: 8px; padding: 0.5em 1em; font-weight: bold; }
+        .chatbox { border: 1px solid #333; border-radius: 10px; padding: 1em; background-color: #15171c; }
     </style>
 """, unsafe_allow_html=True)
 
-# === Logo + Title ===
-st.image("https://via.placeholder.com/300x100.png?text=Quant+Fox+Logo", width=300)
-st.title("🦊 Quant Fox — Trade Smarter with Style")
-st.subheader("Real-time trading sim + AAVE-style financial advice from a GPT-powered fox.")
+# Authentication section
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.user = ""
 
-# === Session State Init ===
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+if not st.session_state.logged_in:
+    st.title("🦊 Quant Fox")
+    st.markdown("Login to your dashboard")
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if email in users and users[email]["password"] == password:
+            st.session_state.logged_in = True
+            st.session_state.user = email
+            st.session_state.balance = users[email]["balance"]
+            st.success("Logged in successfully!")
+            st.experimental_rerun()
+        else:
+            st.error("Invalid credentials")
+    st.stop()
 
-if "saved_advice" not in st.session_state:
-    st.session_state.saved_advice = []
+# Dashboard section
+st.sidebar.title("Quant Fox")
+st.sidebar.write(f"Logged in as: {st.session_state.user}")
+st.sidebar.write(f"💰 Balance: ${st.session_state.balance:,.2f}")
+if st.sidebar.button("Logout"):
+    st.session_state.logged_in = False
+    st.session_state.user = ""
+    st.experimental_rerun()
 
-if "saved_trades" not in st.session_state:
-    st.session_state.saved_trades = []
+st.title("Dashboard")
+st.markdown("Welcome to your trading simulator. Choose your stock and simulate an options trade.")
 
-# === Sidebar Inputs ===
-st.sidebar.header("📊 Simulate a Trade")
-symbol = st.sidebar.text_input("Stock Symbol", value="AAPL")
-option_type = st.sidebar.selectbox("Option Type", ["Call", "Put"])
-strike_price = st.sidebar.number_input("Strike Price", min_value=1.0, value=150.0)
-premium = st.sidebar.number_input("Option Premium ($)", min_value=0.1, value=5.0)
-contracts = st.sidebar.number_input("Contracts", min_value=1, value=1)
-exit_price = st.sidebar.number_input("Target Option Exit Price ($)", value=8.0)
+symbol = st.selectbox("Select Stock", ["AAPL", "TSLA", "GOOGL", "MSFT", "NVDA"])
+option_type = st.radio("Option Type", ["Call", "Put"])
+strike_price = st.number_input("Strike Price", min_value=1.0, value=150.0)
+premium = st.number_input("Premium ($)", min_value=0.1, value=5.0)
+contracts = st.number_input("Contracts", min_value=1, value=1)
+exit_price = st.number_input("Target Exit Price ($)", value=8.0)
 
-# === Simulated Trade Summary ===
-total_cost = premium * contracts * 100
-total_payout = exit_price * contracts * 100
-profit = total_payout - total_cost
+if "trades" not in st.session_state:
+    st.session_state.trades = []
 
-st.markdown(f"### 💼 Simulated Trade Summary for {symbol.upper()} {option_type}")
-st.write(f"**Entry Cost:** `${total_cost:,.2f}`")
-st.write(f"**Exit Value:** `${total_payout:,.2f}`")
-st.write(f"**Estimated Profit:** `${profit:,.2f}`")
-
-if st.button("💾 Save This Trade"):
-    trade_data = {
-        "Time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "Symbol": symbol.upper(),
-        "Type": option_type,
-        "Strike": strike_price,
-        "Premium": premium,
-        "Contracts": contracts,
-        "Exit Price": exit_price,
-        "Profit": profit
-    }
-    st.session_state.saved_trades.append(trade_data)
-    st.success("Trade saved.")
-
-# === TradingView Embed ===
-st.subheader(f"📈 {symbol.upper()} Market Chart (TradingView)")
-embed_url = f"https://s.tradingview.com/widgetembed/?symbol=NASDAQ%3A{symbol.upper()}&interval=D&theme=dark&style=1&locale=en"
-iframe_code = f'<iframe src="{embed_url}" width="100%" height="400" frameborder="0" allowfullscreen></iframe>'
-st.markdown(iframe_code, unsafe_allow_html=True)
-
-# === AAVE-Style Advice Box ===
-st.subheader("🧠 Quant Fox Bot Says:")
-default_advice = f"Aye fam, dat {symbol.upper()} {option_type.lower()} wit a {strike_price} strike? If da volume holdin’ and da trend strong, you might just walk off wit a lil’ bag. Don’t get caught slippin’. Lock in them profits."
-st.markdown(f"**_“{default_advice}”_**")
-
-# === AAVE-Style Chatbot ===
-st.subheader("🗣️ Ask Quant Fox for Money Tips")
-
-openai_api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else st.text_input("Enter your OpenAI API key")
-user_input = st.text_input("What’s on yo mind?", placeholder="e.g. What should I do if the dollar crashin’?")
-
-if st.button("👂 Let Fox Talk"):
-    if not openai_api_key:
-        st.warning("Enter your OpenAI API key.")
-    elif user_input.strip() == "":
-        st.warning("Say somethin’, fam.")
+if st.button("Place Simulated Trade"):
+    cost = premium * contracts * 100
+    payout = exit_price * contracts * 100
+    profit = payout - cost
+    if cost <= st.session_state.balance:
+        st.session_state.balance -= cost
+        trade = {
+            "id": str(uuid.uuid4()),
+            "symbol": symbol,
+            "type": option_type,
+            "strike": strike_price,
+            "premium": premium,
+            "contracts": contracts,
+            "exit": exit_price,
+            "profit": profit,
+            "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        }
+        st.session_state.trades.append(trade)
+        st.success(f"Trade placed. Est. profit: ${profit:,.2f}")
     else:
+        st.error("Insufficient balance")
+
+# Show trades
+st.subheader("Your Trades")
+if st.session_state.trades:
+    st.dataframe(pd.DataFrame(st.session_state.trades))
+else:
+    st.info("No trades placed yet.")
+
+# Chatbot toggleable
+with st.expander("💬 Quant Fox Chatbot (AI Coach)", expanded=False):
+    st.markdown("Ask Quant Fox how to optimize your trades.")
+    user_input = st.text_input("You:", key="chat_input")
+    if user_input:
         try:
-            openai.api_key = openai_api_key
-            prompt = f"You are Quant Fox — a smart, street-savvy financial assistant that speaks in African American Vernacular English (AAVE). Offer smart, current advice based on market conditions, global news, or finance. Speak how Black folks talk naturally. Question: {user_input}"
-            response = openai.ChatCompletion.create(
+            client = OpenAI(api_key="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")
+            response = client.chat.completions.create(
                 model="gpt-4",
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {"role": "user", "content": f"Respond in AAVE: {user_input}. Assume this user has ${st.session_state.balance:,.0f} and just placed a {option_type} option on {symbol}."}
+                ],
                 temperature=0.85
             )
             reply = response.choices[0].message.content.strip()
-            st.session_state.chat_history.append({"question": user_input, "answer": reply})
             st.markdown(f"**Quant Fox:** _\"{reply}\"_")
-
-            if st.button("💾 Save This Advice"):
-                st.session_state.saved_advice.append({
-                    "Time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    "Question": user_input,
-                    "Advice": reply
-                })
-                st.success("Advice saved.")
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Chatbot error: {e}")
 
-# === Display Chat History ===
-if st.session_state.chat_history:
-    st.markdown("### 💬 Chat History")
-    for entry in reversed(st.session_state.chat_history[-5:]):
-        st.markdown(f"**You:** {entry['question']}")
-        st.markdown(f"**Fox:** _{entry['answer']}_")
-
-# === Display Saved Data ===
-if st.session_state.saved_advice:
-    st.markdown("### 🧾 Saved Advice")
-    df_advice = pd.DataFrame(st.session_state.saved_advice)
-    st.dataframe(df_advice)
-
-if st.session_state.saved_trades:
-    st.markdown("### 💼 Saved Trades")
-    df_trades = pd.DataFrame(st.session_state.saved_trades)
-    st.dataframe(df_trades)
-
-# === Footer ===
+# Footer
 st.markdown("---")
-st.markdown("Made with 💚 by **Betheainnovation** · Powered by Streamlit · Quant Fox™")
+st.markdown(" **Betheainnovation 2025** · Quant Fox™")
