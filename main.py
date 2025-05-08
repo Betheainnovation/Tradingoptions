@@ -10,7 +10,7 @@ selected = option_menu(
     default_index=0,
     orientation="horizontal",
     styles={
-        "container": {"padding": "0", "background-color": "#0F1117"},
+        "container": {"padding": "0!important", "background-color": "#0F1117"},
         "nav-link": {"color": "#fff", "font-size": "16px", "text-align": "center"},
         "nav-link-selected": {"background-color": "#1E90FF"},
     }
@@ -19,11 +19,12 @@ selected = option_menu(
 if selected == "Home":
     with open("homepage.html", "r") as f:
         html = f.read()
-    st.components.v1.html(html, height=1200, scrolling=True)
+    st.components.v1.html(html, height=1300, scrolling=True)
 
 elif selected == "App":
     exec(open("quant_fox_platform.py").read())
 
 elif selected == "Contact":
     st.title("Contact Us")
-    st.markdown("Email: hello@quantfox.ai")
+    st.markdown("Email: support@quantfox.ai")
+    st.markdown("Twitter: [@QuantFoxApp](https://twitter.com/quantfoxapp)")
