@@ -1,28 +1,9 @@
 # Quant Fox
 
-**Quant Fox** is a next-generation AI-powered trading simulator designed for modern investors. Built for accessibility and edge, it gives users:
+AI-powered options simulator with GPT-4 + AAVE-style coaching.
 
-- 💰 A simulated $1M trading account
-- 📈 Options trade simulation in real time
-- 🤖 AI chatbot using GPT-4, responding in African American Vernacular English (AAVE)
-- 🔐 Secure login/logout system
-- 🖥️ Visual dashboard with trade summaries and live paper balance
-
----
-
-## 🔐 Features
-
-- Secure login with session memory
-- Real-time trade simulation interface
-- AAVE-style GPT-4 chat assistant for education & trade coaching
-- Clean, professional UI styled like a Series B fintech dashboard
-- Streamlit-based architecture for quick launches
-
----
-
-## 🚀 Getting Started
-
-### 1. Install dependencies
+## Run Locally
 
 ```bash
 pip install -r requirements.txt
+streamlit run main.py
