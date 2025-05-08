@@ -4,7 +4,6 @@ import datetime
 import uuid
 import sqlite3
 import hashlib
-from openai import OpenAI
 
 # Initialize SQLite database
 conn = sqlite3.connect("quant_fox.db", check_same_thread=False)
@@ -27,10 +26,6 @@ c.execute('''CREATE TABLE IF NOT EXISTS trades (
     time TEXT
 )''')
 conn.commit()
-
-# OpenAI
-api_key = st.secrets["OPENAI_API_KEY"]
-client = OpenAI(api_key=api_key)
 
 # Helper functions
 def hash_password(password):
@@ -141,22 +136,3 @@ if rows:
     st.dataframe(df.drop(columns=["ID", "Email"]))
 else:
     st.info("No trades found.")
-
-# Chatbot
-with st.expander("💬 Ask Quant Fox (AAVE Style)", expanded=False):
-    user_input = st.text_input("Ask anything about this trade, markets, or your balance:")
-    if user_input:
-        try:
-            response = client.chat.completions.create(
-                model="gpt-4",
-                messages=[{
-                    "role": "user",
-                    "content": f"You are Quant Fox, a smart trading AI who speaks in AAVE. Give advice about {option_type} options on {symbol} with strike {strike_price}. User balance is ${st.session_state.balance}."
-                }],
-                temperature=0.85
-            )
-            reply = response.choices[0].message.content.strip()
-            st.markdown(f"**Quant Fox says:** _\"{reply}\"_")
-        except Exception as e:
-            st.error(f"Chatbot Error: {e}")
-
