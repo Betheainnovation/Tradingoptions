@@ -82,7 +82,7 @@ if not st.session_state.logged_in:
                 st.session_state.email = user[0]
                 st.session_state.balance = user[1]
                 st.success("Logged in successfully!")
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("Invalid credentials")
         else:
@@ -100,7 +100,7 @@ if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
     st.session_state.email = ""
     st.session_state.balance = 0.0
-    st.experimental_rerun()
+    st.rerun()
 
 st.title("📊 Simulate a Trade")
 symbol = st.selectbox("Select Stock", ["AAPL", "TSLA", "GOOGL", "MSFT", "NVDA"])
@@ -136,3 +136,4 @@ if rows:
     st.dataframe(df.drop(columns=["ID", "Email"]))
 else:
     st.info("No trades found.")
+
