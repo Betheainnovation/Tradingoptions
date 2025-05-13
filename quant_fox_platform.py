@@ -5,7 +5,7 @@ import uuid
 import sqlite3
 import hashlib
 
-# Initialize SQLite database
+# Initialize database for simulated accounts
 conn = sqlite3.connect("quant_fox.db", check_same_thread=False)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS users (
@@ -23,11 +23,12 @@ c.execute('''CREATE TABLE IF NOT EXISTS trades (
     contracts INTEGER,
     exit REAL,
     profit REAL,
-    time TEXT
+    time TEXT,
+    mode TEXT
 )''')
 conn.commit()
 
-# Helper functions
+# Utility functions
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
@@ -49,11 +50,11 @@ def get_user_trades(email):
     c.execute("SELECT * FROM trades WHERE email=? ORDER BY time DESC", (email,))
     return c.fetchall()
 
-# Auth flow
 st.set_page_config(page_title="Quant Fox", layout="wide")
+
+# Theme + Session Init
 st.markdown("""<style>
     body { background-color: #0F1117; }
-    .main { color: white; }
     h1, h2, h3 { color: #00FF85; }
     .stButton>button {
         background-color: #1E90FF;
@@ -92,17 +93,26 @@ if not st.session_state.logged_in:
                 st.error("Account already exists.")
     st.stop()
 
-# Dashboard
+# Sidebar
 st.sidebar.title("Quant Fox")
 st.sidebar.write(f"User: {st.session_state.email}")
 st.sidebar.write(f"💰 Balance: ${st.session_state.balance:,.2f}")
+mode = st.sidebar.radio("Mode", ["Simulated", "Live"], index=0)
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
     st.session_state.email = ""
     st.session_state.balance = 0.0
     st.rerun()
 
+# Main Panel
 st.title("📊 Simulate a Trade")
+
+# Real-time chart (TradingView)
+st.markdown("""
+<iframe src="https://s.tradingview.com/embed-widget/symbol-overview/?locale=en#%7B%22symbols%22%3A%5B%5B%22NASDAQ%3AAAPL%7C1D%22%5D%5D%2C%22chartOnly%22%3Afalse%2C%22width%22%3A"100%"%2C%22height%22%3A"300"%2C%22colorTheme%22%3A%22dark%22%7D" 
+    width="100%" height="300" frameborder="0"></iframe>
+""", unsafe_allow_html=True)
+
 symbol = st.selectbox("Select Stock", ["AAPL", "TSLA", "GOOGL", "MSFT", "NVDA"])
 option_type = st.radio("Option Type", ["Call", "Put"])
 strike_price = st.number_input("Strike Price", min_value=1.0, value=150.0)
@@ -110,30 +120,34 @@ premium = st.number_input("Premium ($)", min_value=0.1, value=5.0)
 contracts = st.number_input("Contracts", min_value=1, value=1)
 exit_price = st.number_input("Target Exit Price ($)", value=8.0)
 
-if st.button("Place Simulated Trade"):
+if st.button("Place Trade"):
     cost = premium * contracts * 100
     payout = exit_price * contracts * 100
     profit = payout - cost
-    if cost <= st.session_state.balance:
-        st.session_state.balance -= cost
-        c.execute("UPDATE users SET balance=? WHERE email=?", (st.session_state.balance, st.session_state.email))
-        trade = (
-            str(uuid.uuid4()), st.session_state.email, symbol, option_type,
-            strike_price, premium, contracts, exit_price, profit,
-            datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-        )
-        c.execute("INSERT INTO trades VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", trade)
-        conn.commit()
-        st.success(f"Trade placed. Est. profit: ${profit:,.2f}")
+    if mode == "Simulated":
+        if cost <= st.session_state.balance:
+            st.session_state.balance -= cost
+            c.execute("UPDATE users SET balance=? WHERE email=?", (st.session_state.balance, st.session_state.email))
+            trade = (
+                str(uuid.uuid4()), st.session_state.email, symbol, option_type,
+                strike_price, premium, contracts, exit_price, profit,
+                datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), mode
+            )
+            c.execute("INSERT INTO trades VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", trade)
+            conn.commit()
+            st.success(f"Trade placed. Est. profit: ${profit:,.2f}")
+        else:
+            st.error("Insufficient balance")
     else:
-        st.error("Insufficient balance")
+        st.warning("Live trading is coming soon. Broker integration required.")
 
-# Show trades
+# Trade history
 st.subheader("Your Trades")
 rows = get_user_trades(st.session_state.email)
 if rows:
-    df = pd.DataFrame(rows, columns=["ID", "Email", "Symbol", "Type", "Strike", "Premium", "Contracts", "Exit", "Profit", "Time"])
+    df = pd.DataFrame(rows, columns=["ID", "Email", "Symbol", "Type", "Strike", "Premium", "Contracts", "Exit", "Profit", "Time", "Mode"])
     st.dataframe(df.drop(columns=["ID", "Email"]))
 else:
     st.info("No trades found.")
+
 
