@@ -1,5 +1,5 @@
-import streamlit as st
 from streamlit_option_menu import option_menu
+import streamlit as st
 
 st.set_page_config(page_title="Quant Fox", layout="wide")
 
@@ -8,23 +8,14 @@ selected = option_menu(
     options=["Home", "App", "Contact"],
     icons=["house", "cpu", "mail"],
     default_index=0,
-    orientation="horizontal",
-    styles={
-        "container": {"padding": "0!important", "background-color": "#0F1117"},
-        "nav-link": {"color": "#fff", "font-size": "16px", "text-align": "center"},
-        "nav-link-selected": {"background-color": "#1E90FF"},
-    }
+    orientation="horizontal"
 )
 
 if selected == "Home":
     with open("homepage.html", "r") as f:
-        html = f.read()
-    st.components.v1.html(html, height=1300, scrolling=True)
-
+        st.components.v1.html(f.read(), height=1000)
 elif selected == "App":
-    exec(open("quant_fox_platform.py").read())
-
+    import quant_fox_platform_module
 elif selected == "Contact":
-    st.title("Contact Us")
-    st.markdown("Email: support@quantfox.ai")
-    st.markdown("Twitter: [@QuantFoxApp](https://twitter.com/quantfoxapp)")
+    st.title("Contact")
+    st.write("Email: support@quantfox.ai")
