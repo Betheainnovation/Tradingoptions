@@ -1,4 +1,6 @@
 import streamlit as st
+st.set_page_config(page_title="Quant Fox", layout="wide")
+
 import pandas as pd
 import datetime
 import uuid
@@ -49,8 +51,6 @@ def create_user(email, password):
 def get_user_trades(email):
     c.execute("SELECT * FROM trades WHERE email=? ORDER BY time DESC", (email,))
     return c.fetchall()
-
-st.set_page_config(page_title="Quant Fox", layout="wide")
 
 # Theme + Session Init
 st.markdown("""<style>
@@ -149,5 +149,6 @@ if rows:
     st.dataframe(df.drop(columns=["ID", "Email"]))
 else:
     st.info("No trades found.")
+
 
 
